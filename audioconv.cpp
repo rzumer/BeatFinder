@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #pragma comment (lib, "avfilter.lib")
 #pragma comment (lib, "avformat.lib")
 #pragma comment (lib, "avcodec.lib")
@@ -16,22 +14,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include "audioconv.h"
-
-extern "C"
-{
-#include "libavfilter/avfilter.h"
-#include "libavfilter/buffersrc.h"
-#include "libavfilter/buffersink.h"
-#include "libavformat/avformat.h"
-#include "libavcodec/avcodec.h"
-#include "libavutil/imgutils.h"
-#include "libavutil/error.h"
-#include "libavutil/avutil.h"
-#include "libavutil/mathematics.h"
-#include "libavutil/samplefmt.h"
-#include "libavutil/frame.h"
-#include "libavutil/opt.h"
-}
 
 using namespace std;
 
@@ -87,6 +69,8 @@ private:
 			cout << "Error reading frame data." << endl;
 			return -1;
 		}
+
+		return 0;
 	}
 
 	int decodeFrame()
@@ -260,7 +244,7 @@ public:
 	}
 };
 
-class audioEncoder
+class fileAudioEncoder
 {
 	AVCodec *codec;
 	AVCodecContext *codecContext;
@@ -269,6 +253,10 @@ class audioEncoder
 	AVPacket *packet;
 	AVFilterGraph *filterGraph;
 	AVFilterContext *filterSource, *filterSink;
+	AVStream *stream;
+	AVFormatContext *formatContext;
+	AVIOContext *ioContext;
+	AVCodecID codecID;
 	int finished;
 
 	void cleanUp()
@@ -277,6 +265,16 @@ class audioEncoder
 		{
 			avcodec_close(this->codecContext);
 			avcodec_free_context(&this->codecContext);
+		}
+
+		if (this->ioContext)
+		{
+			avio_close(this->ioContext);
+		}
+
+		if (this->formatContext)
+		{
+			avformat_free_context(this->formatContext);
 		}
 
 		if (this->filterGraph)
@@ -395,17 +393,106 @@ class audioEncoder
 	}
 
 public:
-	int init(const char *filePath, AVCodecID codecID, AVCodecParameters *parameters)
+	int init(const char *filePath, const vector<AVCodecID> *codecIDs, AVCodecParameters *parameters)
 	{
+		this->codecID = AV_CODEC_ID_NONE;
 		this->finished = 0;
-		this->codecContext = avcodec_alloc_context3(NULL);
 		this->codecParameters = parameters;
-		this->codec = avcodec_find_encoder(codecID);
 		this->frame = NULL;
 		this->packet = av_packet_alloc();
 		this->filterGraph = NULL;
 		this->filterSource = NULL;
 		this->filterSink = NULL;
+
+		// Initialize output format context if an output file name was provided.
+		if (filePath)
+		{
+			if (avio_open2(&this->ioContext, filePath, AVIO_FLAG_WRITE, NULL, NULL) < 0)
+			{
+				cout << "Error opening file for writing." << endl;
+				this->cleanUp();
+				return -1;
+			}
+
+			const size_t fileExtensionLength = 16;
+			const size_t fileNameLength = 1024 - fileExtensionLength;
+			char *fileName = new char[fileNameLength + fileExtensionLength];
+			char *fileExtension = new char[fileExtensionLength];
+
+			_splitpath_s(filePath, NULL, 0, NULL, 0, fileName, fileNameLength, fileExtension, fileExtensionLength);
+			sprintf(fileName + strlen(fileName), "%s", fileExtension);
+
+			if (avformat_alloc_output_context2(&this->formatContext, NULL, NULL, fileName) < 0)
+			{
+				cout << "Error allocating output format context." << endl;
+				this->cleanUp();
+				return -1;
+			}
+
+			this->formatContext->pb = ioContext;
+
+			for (int i = 0; i < codecIDs->size(); i++)
+			{
+				if (avformat_query_codec(this->formatContext->oformat, codecIDs->at(i), FF_COMPLIANCE_NORMAL))
+				{
+#ifdef _DEBUG
+					cout << "Negotiated codec: " << avcodec_get_name(codecIDs->at(i)) << endl;
+#endif
+					this->codecID = codecIDs->at(i);
+					break;
+				}
+			}
+
+			if (this->codecID == AV_CODEC_ID_NONE)
+			{
+				cout << "Unsupported codecs offered for the given output format." << endl;
+				this->cleanUp();
+				return -1;
+			}
+
+			this->formatContext->oformat->audio_codec = this->codecID;
+			this->codec = avcodec_find_encoder(this->codecID);
+			this->codecContext = avcodec_alloc_context3(this->codec);
+
+			if (this->formatContext->oformat->flags & AVFMT_GLOBALHEADER)
+			{
+				this->formatContext->flags |= CODEC_FLAG_GLOBAL_HEADER;
+			}
+
+			if (!(this->stream = avformat_new_stream(this->formatContext, this->codec)))
+			{
+				cout << "Error allocating output stream." << endl;
+				this->cleanUp();
+				return -1;
+			}
+
+			this->codecContext = avcodec_alloc_context3(this->codec);
+			this->codecContext->bit_rate = parameters->bit_rate;
+			this->codecContext->channels = parameters->channels;
+			this->codecContext->channel_layout = parameters->channel_layout;
+			this->codecContext->sample_fmt = (AVSampleFormat)parameters->format;
+			this->codecContext->sample_rate = parameters->sample_rate;
+
+			avcodec_parameters_from_context(this->stream->codecpar, this->codecContext);
+
+			if (avformat_init_output(this->formatContext, NULL) < 0)
+			{
+				cout << "Error initializing output format context." << endl;
+				this->cleanUp();
+				return -1;
+			}
+		}
+		else
+		{
+			this->codecID = codecIDs->at(0);
+			this->codec = avcodec_find_encoder(this->codecID);
+			this->codecContext = avcodec_alloc_context3(this->codec);
+			this->codecContext->bit_rate = parameters->bit_rate;
+			this->codecContext->channels = parameters->channels;
+			this->codecContext->channel_layout = parameters->channel_layout;
+			this->codecContext->sample_fmt = (AVSampleFormat)parameters->format;
+			this->codecContext->sample_rate = parameters->sample_rate;
+		}
 
 		if (!codec)
 		{
@@ -413,13 +500,6 @@ public:
 			this->cleanUp();
 			return -1;
 		}
-
-		this->codecContext = avcodec_alloc_context3(this->codec);
-		this->codecContext->bit_rate = parameters->bit_rate;
-		this->codecContext->channels = parameters->channels;
-		this->codecContext->channel_layout = parameters->channel_layout;
-		this->codecContext->sample_fmt = (AVSampleFormat)parameters->format;
-		this->codecContext->sample_rate = parameters->sample_rate;
 
 		const enum AVSampleFormat *format = this->codec->sample_fmts;
 		AVSampleFormat requestedFormat = (AVSampleFormat)parameters->format;
@@ -435,6 +515,7 @@ public:
 			format++;
 		}
 
+		// If no viable codec was found for encoding, set up a filtergraph for format conversion.
 		if (*format == AV_SAMPLE_FMT_NONE)
 		{
 			avfilter_register_all();
@@ -610,6 +691,59 @@ public:
 		return 0;
 	}
 
+	int writeHeader()
+	{
+		if (!avcodec_is_open(this->codecContext))
+		{
+			cout << "Codec context is closed." << endl;
+			return -1;
+		}
+
+		if (avformat_write_header(this->formatContext, NULL) < 0)
+		{
+			cout << "Error writing output file header." << endl;
+			return -1;
+		}
+
+		return 0;
+	}
+
+	int writeEncodedPacket(AVPacket *toWrite)
+	{
+		if (!avcodec_is_open(this->codecContext))
+		{
+			cout << "Codec context is closed." << endl;
+			return -1;
+		}
+
+		int result = av_interleaved_write_frame(this->formatContext, toWrite);
+		
+		if (result < 0)
+		{
+			cout << "Error writing encoded packet." << endl;
+			return -1;
+		}
+		
+		return result;
+	}
+
+	int writeTrailer()
+	{
+		if (!avcodec_is_open(this->codecContext))
+		{
+			cout << "Codec context is closed." << endl;
+			return -1;
+		}
+
+		if (av_write_trailer(this->formatContext) < 0)
+		{
+			cout << "Error writing output file trailer." << endl;
+			return -1;
+		}
+
+		return 0;
+	}
+
 	AVPacket *getEncodedPacket(AVFrame *toEncode)
 	{
 		if (!finished)
@@ -631,20 +765,13 @@ public:
 	}
 };
 
-int convertAudio(const char *input, const char *output, AVCodecID codecID)
+int convertAudio(const char *input, const char *output, const vector<AVCodecID> *codecIDs)
 {
 	av_register_all();
 
 	fileAudioDecoder *decoder = new fileAudioDecoder();
-	audioEncoder *encoder = new audioEncoder();
+	fileAudioEncoder *encoder = new fileAudioEncoder();
 	AVPacket *outputPacket = new AVPacket;
-	FILE *outFile = fopen(output, "wb+");
-
-	if (!outFile)
-	{
-		cout << "Error opening file for writing." << endl;
-		return -1;
-	}
 
 	if (!decoder->init(input) == 0)
 	{
@@ -654,7 +781,11 @@ int convertAudio(const char *input, const char *output, AVCodecID codecID)
 
 	AVCodecParameters *decodingParameters = decoder->getCodecParameters();
 	
-	encoder->init(output, codecID, decodingParameters);
+	if (!encoder->init(output, codecIDs, decodingParameters) == 0)
+	{
+		cout << "Error initializing encoder." << endl;
+		return -1;
+	}
 
 	float *samples = NULL;
 	long int totalSamples = 0;
@@ -667,7 +798,7 @@ int convertAudio(const char *input, const char *output, AVCodecID codecID)
 		return -1;
 	}
 
-	int backedFrames = 0;
+	int headerWritten = 0;
 
 	while (outFrame != NULL)
 	{
@@ -681,7 +812,22 @@ int convertAudio(const char *input, const char *output, AVCodecID codecID)
 
 		while (outputPacket->size > 0)
 		{
-			fwrite(outputPacket->data, 1, outputPacket->size, outFile);
+			if (!headerWritten)
+			{
+				if (encoder->writeHeader() < 0)
+				{
+					cout << "Error writing to output file." << endl;
+					return -1;
+				}
+
+				headerWritten = 1;
+			}
+
+			if (encoder->writeEncodedPacket(outputPacket) < 0)
+			{
+				cout << "Error writing to output file." << endl;
+				return -1;
+			}
 
 			outputPacket = encoder->getEncodedPacket(NULL);
 		}
@@ -689,7 +835,11 @@ int convertAudio(const char *input, const char *output, AVCodecID codecID)
 		outFrame = decoder->getDecodedFrame();
 	}
 
-	fclose(outFile);
+	if (encoder->writeTrailer() < 0)
+	{
+		cout << "Error writing to output file." << endl;
+		return -1;
+	}
 
 	cout << "Done." << endl;
 	return 0;
