@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 
 	if (argc >= 3)
 	{
-		convertAudio(argv[1], argv[2], codecIDs);
+		convertAudioFile(argv[1], argv[2], codecIDs);
 	}
 	else
 	{

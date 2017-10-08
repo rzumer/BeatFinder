@@ -23,7 +23,7 @@
     <ProjectGuid>{88A1C3F9-2740-4BC2-B601-FFF9AE318643}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>BeatFinder</RootNamespace>
-    <WindowsTargetPlatformVersion>7.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>7</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -147,11 +147,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="audioconv.h" />
+    <ClInclude Include="fileAudioDecoder.h" />
+    <ClInclude Include="fileAudioEncoder.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BeatFinder.cpp" />
     <ClCompile Include="audioconv.cpp" />
+    <ClCompile Include="fileAudioDecoder.cpp" />
+    <ClCompile Include="fileAudioEncoder.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -16,17 +16,28 @@ extern "C"
 #include "libavutil/opt.h"
 }
 
-#include "fileAudioEncoder.h"
-#include "fileAudioDecoder.h"
+#include <stdint.h>
+#include <inttypes.h>
+#include <vector>
+#include <iostream>
 
-#pragma once
-class PCMDecoder
+class fileAudioDecoder
 {
 private:
-	fileAudioDecoder *decoder;
-	fileAudioEncoder *encoder;
-public:
-	AVPacket *decodeAudio(const char *input);
-};
+	AVCodec *codec;
+	AVCodecParameters *codecParameters;
+	AVCodecContext *codecContext;
+	AVFormatContext *formatContext;
+	AVPacket *packet;
+	AVFrame *frame;
+	int finished;
 
-int convertAudioFile(const char *input, const char *output, const std::vector<AVCodecID> *codecIDs);
+	void cleanUp();
+	int getPacket();
+	int decodeFrame();
+
+public:
+	int init(const char *filePath);
+	AVCodecParameters *getCodecParameters();
+	AVFrame *getDecodedFrame();
+};

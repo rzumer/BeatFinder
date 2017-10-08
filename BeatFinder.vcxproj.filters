@@ -24,12 +24,24 @@
     <ClInclude Include="audioconv.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fileAudioDecoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="fileAudioEncoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BeatFinder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="audioconv.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fileAudioDecoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fileAudioEncoder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
