@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 			offset = max(numSamples - windowBytes, 0);
 
 			// Append packet contents to the window buffer
-			copy(packet->data, packet->data + packet->size - offset, back_inserter(samples)); // INVALID ITERATOR RANGE??
+			copy(packet->data, packet->data + packet->size - offset, back_inserter(samples));
 
 			while (numSamples >= windowBytes)
 			{
