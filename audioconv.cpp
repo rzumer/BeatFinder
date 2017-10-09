@@ -5,7 +5,7 @@
 
 using namespace std;
 
-AVPacket *PCMDecoder::decodeAudio(const char *input)
+AVPacket *PCMDecoder::decodeAudio(const char *input, AVCodecID codecID)
 {
 	AVPacket *outputPacket = new AVPacket;
 	AVFrame *outFrame = NULL;
@@ -49,8 +49,6 @@ AVPacket *PCMDecoder::decodeAudio(const char *input)
 		cout << "Error reading input file." << endl;
 		return NULL;
 	}
-
-	AVCodecID codecID = AV_CODEC_ID_PCM_F16LE;
 
 	AVCodecParameters *decodingParameters = decoder->getCodecParameters();
 	decodingParameters->channel_layout = AV_CH_LAYOUT_MONO;

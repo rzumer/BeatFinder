@@ -26,7 +26,7 @@ private:
 	fileAudioDecoder *decoder;
 	fileAudioEncoder *encoder;
 public:
-	AVPacket *decodeAudio(const char *input);
+	AVPacket *decodeAudio(const char *input, AVCodecID codecID = AV_CODEC_ID_NONE);
 };
 
 int convertAudioFile(const char *input, const char *output, const std::vector<AVCodecID> *codecIDs);
