@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iterator>
 #include <algorithm>
+#include <fstream>
 #include <unsupported/Eigen/FFT>
 #include "libavcodec/avcodec.h"
 #include "audioconv.h"
@@ -22,7 +23,6 @@ int main(int argc, char* argv[])
 	else if (argc >= 2)
 	{
 		const int windowSize = 1024;
-		const int spectrumSize = windowSize / 2 + 1;
 		const int windowBytes = windowSize;
 
 		PCMDecoder *decoder = new PCMDecoder;
@@ -32,8 +32,8 @@ int main(int argc, char* argv[])
 		int numSamples = 0;
 		int offset = 0;
 		vector<uint8_t> samples(packet->data, packet->data + packet->size);
-		vector<complex<float>> spectrum(spectrumSize);
-		vector<complex<float>> lastSpectrum(spectrumSize);
+		vector<complex<float>> spectrum(windowSize);
+		vector<complex<float>> lastSpectrum(windowSize);
 		vector<float> spectralFlux;
 		vector<int> peakWindows;
 
@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 			while (numSamples >= windowBytes)
 			{
 				// Convert data to signed float between -1 and 1
-				vector<float> floatSamples(windowSize);
+				vector<float> floatSamples;
 
 				for (int i = 0; i < windowSize; i++)
 				{
@@ -57,19 +57,37 @@ int main(int argc, char* argv[])
 					floatSamples.push_back(convSample);
 				}
 
-				// Do something with the samples
+				// Apply Hamming window
+				for (int j = 0; j < windowSize; j++)
+				{
+					float hammingCoefficient = 0.54 - 0.46 * cos(2 * M_PI * j / (double)windowSize);
+					floatSamples[j] *= hammingCoefficient;
+				}
+
 				Eigen::FFT<float> fft;
 				fft.fwd(spectrum, floatSamples);
 
 				int spectralDiff = 0;
-				for (int i = 0; i < spectrumSize; i++)
+
+				for (int i = 0; i < spectrum.size(); i++)
 				{
-					float diff = spectrum[i].real() - lastSpectrum[i].real();
+					float diff = abs(spectrum[i]) - abs(lastSpectrum[i]);
 					spectralDiff += fmax(diff, 0);
 				}
 
 				spectralFlux.push_back(spectralDiff);
 				lastSpectrum = spectrum;
+
+				// Check for a peak
+				/*if (spectralFlux.size() > 2)
+				{
+					int peakChecked = spectralFlux.size() - 2;
+					if (spectralFlux[peakChecked] > spectralFlux[peakChecked - 1] && spectralFlux[peakChecked] > spectralFlux[peakChecked + 1])
+					{
+						double sec = peakChecked * windowSize / 44100.0;
+						cout << "Found peak at " << sec << "s." << endl;
+					}
+				}*/
 
 				// Handle remaining bytes
 				if (offset > 0)
@@ -111,18 +129,25 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		for (int j = 0; j < min((int)peakWindows.size(), 10); j++)
+		ofstream stream(strcat(argv[1], "_flux.txt"));
+		copy(spectralFlux.begin(), spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
+
+		/*ofstream stream2("C:/out_peaks.txt");
+		copy(peakWindows.begin(), peakWindows.end(), ostream_iterator<int>(stream2, "\n"));*/
+
+		/*for (int j = 0; j < min((int)peakWindows.size(), 10); j++)
 		{
 			double sec = peakWindows[j] * windowSize / 44100.0;
 			cout << "Peak at " << sec << "s" << endl;
-		}
+		}*/
+
+		cout << "Done." << endl;
 	}
 	else
 	{
 		cout << "Usage: BeatFinder <input> <output>" << endl;
 	}
 	
-	cout << "Done." << endl;
 	getchar();
     return 0;
 }
