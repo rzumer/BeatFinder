@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
 
 		AVPacket *packet = decoder->decodeAudio(input, AV_CODEC_ID_PCM_U8);
 		int numSamples = 0;
-		int offset = 0;
+		int overflow = 0;
 		vector<uint8_t> samples(packet->data, packet->data + packet->size);
 		vector<complex<float>> spectrum(windowSize);
 		vector<complex<float>> lastSpectrum(windowSize);
@@ -40,10 +40,10 @@ int main(int argc, char* argv[])
 		while(packet)
 		{
 			numSamples += packet->size;
-			offset = max(numSamples - windowBytes, 0);
+			overflow = max(numSamples - windowBytes, 0);
 
 			// Append packet contents to the window buffer
-			copy(packet->data, packet->data + packet->size - offset, back_inserter(samples));
+			copy(packet->data, packet->data + packet->size - overflow, back_inserter(samples));
 
 			while (numSamples >= windowBytes)
 			{
@@ -53,15 +53,9 @@ int main(int argc, char* argv[])
 				for (int i = 0; i < windowSize; i++)
 				{
 					float convSample = (int)samples[i] / (numeric_limits<uint8_t>::max() / 2.0) - 1;
+					float hammingCoefficient = 0.54 - 0.46 * cos(2 * M_PI * i / (double)windowSize);
 					
-					floatSamples.push_back(convSample);
-				}
-
-				// Apply Hamming window
-				for (int j = 0; j < windowSize; j++)
-				{
-					float hammingCoefficient = 0.54 - 0.46 * cos(2 * M_PI * j / (double)windowSize);
-					floatSamples[j] *= hammingCoefficient;
+					floatSamples.push_back(convSample * hammingCoefficient);
 				}
 
 				Eigen::FFT<float> fft;
@@ -90,14 +84,14 @@ int main(int argc, char* argv[])
 				}*/
 
 				// Handle remaining bytes
-				if (offset > 0)
+				if (overflow > 0)
 				{
 					// Add the remaining samples back to the window buffer
-					samples = vector<uint8_t>(packet->data + packet->size - offset + 1, packet->data + min(packet->size - offset + 1 + windowBytes, packet->size));
-					offset = max(offset - windowBytes, 0);
+					samples = vector<uint8_t>(packet->data + packet->size - overflow, packet->data + min(packet->size - overflow + 1 + windowBytes, packet->size));
+					overflow = max(overflow - windowBytes, 0);
 				}
 
-				numSamples = offset;
+				numSamples = max(numSamples - windowBytes, 0);
 			}
 
 			packet = decoder->decodeAudio(NULL);
