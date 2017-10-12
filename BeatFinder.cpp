@@ -6,6 +6,7 @@
 #include <iterator>
 #include <algorithm>
 #include <fstream>
+#include <numeric>
 #include <unsupported/Eigen/FFT>
 #include "libavcodec/avcodec.h"
 #include "audioconv.h"
@@ -24,6 +25,8 @@ int main(int argc, char* argv[])
 	{
 		const int windowSize = 1024;
 		const int windowBytes = windowSize;
+		const int movingAverageSize = 20;
+		const double thresholdMultiplier = 1.5;
 
 		PCMDecoder *decoder = new PCMDecoder;
 		char *input = argv[1];
@@ -35,7 +38,9 @@ int main(int argc, char* argv[])
 		vector<complex<float>> spectrum(windowSize);
 		vector<complex<float>> lastSpectrum(windowSize);
 		vector<float> spectralFlux;
-		vector<int> peakWindows;
+		vector<int> peaks;
+		int lastSum = 0;
+		int curSum = 0;
 
 		while(packet)
 		{
@@ -73,15 +78,27 @@ int main(int argc, char* argv[])
 				lastSpectrum = spectrum;
 
 				// Check for a peak
-				/*if (spectralFlux.size() > 2)
+				// TODO get the same results in this method and below.
+				float peak = 0;
+				if (spectralFlux.size() > movingAverageSize + 1)
 				{
-					int peakChecked = spectralFlux.size() - 2;
-					if (spectralFlux[peakChecked] > spectralFlux[peakChecked - 1] && spectralFlux[peakChecked] > spectralFlux[peakChecked + 1])
+					int nextSum = accumulate(spectralFlux.end() - movingAverageSize, spectralFlux.end(), 0);
+
+					float movingAverage = curSum / (float)movingAverageSize * thresholdMultiplier;
+
+					int windowIndex = spectralFlux.size() - 2 - movingAverageSize / 2;
+					if (movingAverage < spectralFlux[windowIndex] && curSum > nextSum && curSum > lastSum)
 					{
-						double sec = peakChecked * windowSize / 44100.0;
-						cout << "Found peak at " << sec << "s." << endl;
+						peak = movingAverage;
+						//double sec = windowIndex * windowSize / 44100.0;
+						//cout << "Found peak at " << sec << "s." << endl;
 					}
-				}*/
+
+					lastSum = curSum;
+					curSum = nextSum;
+				}
+
+				peaks.push_back(peak);
 
 				// Handle remaining bytes
 				if (overflow > 0)
@@ -98,42 +115,46 @@ int main(int argc, char* argv[])
 		}
 
 		// Find peak windows from the spectral flux
+		// TODO get the same results in this method and above.
+		/*vector<float> threshold;
 		for (int i = 0; i < spectralFlux.size(); i++)
 		{
-			if (i == 0)
+			int start = max(0, i - movingAverageSize);
+			int end = min((int)spectralFlux.size() - 1, i + movingAverageSize);
+			float mean = 0;
+			for (int j = start; j <= end; j++)
+				mean += spectralFlux.at(j);
+			mean /= (end - start);
+			threshold.push_back(mean * thresholdMultiplier);
+		}
+
+		vector<float> prunedSpectralFlux;
+		for (int i = 0; i < threshold.size(); i++)
+		{
+			if (threshold.at(i) <= spectralFlux.at(i))
 			{
-				if (spectralFlux[i] > spectralFlux[i + 1])
-				{
-					peakWindows.push_back(i);
-				}
-			}
-			else if (i == spectralFlux.size() - 1)
-			{
-				if (spectralFlux[i] > spectralFlux[i - 1])
-				{
-					peakWindows.push_back(i);
-				}
+				prunedSpectralFlux.push_back(spectralFlux.at(i) - threshold.at(i));
 			}
 			else
-			{
-				if (spectralFlux[i] > spectralFlux[i - 1] && spectralFlux[i] > spectralFlux[i + 1])
-				{
-					peakWindows.push_back(i);
-				}
-			}
+				prunedSpectralFlux.push_back((float)0);
 		}
+
+		vector<float> peaks;
+		for (int i = 1; i < prunedSpectralFlux.size() - 1; i++)
+		{
+			if (prunedSpectralFlux.at(i) > prunedSpectralFlux.at(i + 1) && prunedSpectralFlux.at(i) > prunedSpectralFlux.at(i - 1))
+			{
+				peaks.push_back(prunedSpectralFlux.at(i));
+			}
+			else
+				peaks.push_back((float)0);
+		}*/
 
 		ofstream stream(strcat(argv[1], "_flux.txt"));
 		copy(spectralFlux.begin(), spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
 
-		/*ofstream stream2("C:/out_peaks.txt");
-		copy(peakWindows.begin(), peakWindows.end(), ostream_iterator<int>(stream2, "\n"));*/
-
-		/*for (int j = 0; j < min((int)peakWindows.size(), 10); j++)
-		{
-			double sec = peakWindows[j] * windowSize / 44100.0;
-			cout << "Peak at " << sec << "s" << endl;
-		}*/
+		ofstream stream2("C:/out_peaks.txt");
+		copy(peaks.begin(), peaks.end(), ostream_iterator<float>(stream2, "\n"));
 
 		cout << "Done." << endl;
 	}
