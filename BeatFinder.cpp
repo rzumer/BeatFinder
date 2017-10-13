@@ -80,25 +80,46 @@ int main(int argc, char* argv[])
 				// Check for a peak
 				// TODO get the same results in this method and below.
 				float peak = 0;
-				if (spectralFlux.size() > movingAverageSize + 1)
+
+				int currentWindow = (int)spectralFlux.size() - 1 - movingAverageSize;
+				int startWindow = max(0, currentWindow - movingAverageSize);
+				int endWindow = min((int)spectralFlux.size() - 1, currentWindow + movingAverageSize);
+
+				if (currentWindow >= 0)
 				{
-					int nextSum = accumulate(spectralFlux.end() - movingAverageSize, spectralFlux.end(), 0);
+					float sum = 0;
+					float threshold = 0;
 
-					float movingAverage = curSum / (float)movingAverageSize * thresholdMultiplier;
-
-					int windowIndex = spectralFlux.size() - 2 - movingAverageSize / 2;
-					if (movingAverage < spectralFlux[windowIndex] && curSum > nextSum && curSum > lastSum)
+					for (int j = startWindow; j <= endWindow; j++)
 					{
-						peak = movingAverage;
-						//double sec = windowIndex * windowSize / 44100.0;
-						//cout << "Found peak at " << sec << "s." << endl;
+						sum += spectralFlux.at(j);
 					}
 
-					lastSum = curSum;
-					curSum = nextSum;
-				}
+					threshold = sum / (endWindow - startWindow + 1) * thresholdMultiplier;
 
-				peaks.push_back(peak);
+					if (threshold <= spectralFlux.at(currentWindow))
+					{
+						peak = spectralFlux.at(currentWindow) - threshold;
+
+						// Ensure that only peaks are selected.
+						if (peaks.size() > 0)
+						{
+							float lastPeak = peaks.back();
+
+							if (peak < lastPeak)
+							{
+								peak = 0;
+							}
+							else
+							{
+								peaks.pop_back();
+								peaks.push_back((float)0);
+							}
+						}
+					}
+
+					peaks.push_back(peak);
+				}
 
 				// Handle remaining bytes
 				if (overflow > 0)
@@ -112,6 +133,12 @@ int main(int argc, char* argv[])
 			}
 
 			packet = decoder->decodeAudio(NULL);
+		}
+
+		// Pad peak vector to the same size as the spectral flux.
+		for (int i = 0; i < movingAverageSize; i++)
+		{
+			peaks.push_back(0);
 		}
 
 		// Find peak windows from the spectral flux
