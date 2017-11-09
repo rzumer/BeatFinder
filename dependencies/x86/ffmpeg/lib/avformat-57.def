@@ -1,4 +1,38 @@
 EXPORTS
+    Java_java_awt_BDFontMetrics_charWidthN@20
+    Java_java_awt_BDFontMetrics_charsWidthN@28
+    Java_java_awt_BDFontMetrics_destroyFontN@16
+    Java_java_awt_BDFontMetrics_destroyN@16
+    Java_java_awt_BDFontMetrics_getFontFamilyAndStyleN@20
+    Java_java_awt_BDFontMetrics_initN@8
+    Java_java_awt_BDFontMetrics_loadFontN@24
+    Java_java_awt_BDFontMetrics_resolveFontN@16
+    Java_java_awt_BDFontMetrics_stringWidthN@20
+    Java_java_awt_BDFontMetrics_unloadFontConfigN@8
+    Java_java_awt_BDGraphics_drawStringN@32
+    Java_org_videolan_Libbluray_cacheBdRomFileN@24
+    Java_org_videolan_Libbluray_getAacsDataN@20
+    Java_org_videolan_Libbluray_getBdjoN@20
+    Java_org_videolan_Libbluray_getPlaylistInfoN@20
+    Java_org_videolan_Libbluray_getTitleInfosN@16
+    Java_org_videolan_Libbluray_getUOMaskN@16
+    Java_org_videolan_Libbluray_listBdFilesN@24
+    Java_org_videolan_Libbluray_readGPRN@20
+    Java_org_videolan_Libbluray_readPSRN@20
+    Java_org_videolan_Libbluray_seekN@32
+    Java_org_videolan_Libbluray_selectAngleN@20
+    Java_org_videolan_Libbluray_selectPlaylistN@36
+    Java_org_videolan_Libbluray_selectRateN@24
+    Java_org_videolan_Libbluray_selectTitleN@20
+    Java_org_videolan_Libbluray_setKeyInterestN@20
+    Java_org_videolan_Libbluray_setUOMaskN@24
+    Java_org_videolan_Libbluray_setVirtualPackageN@24
+    Java_org_videolan_Libbluray_soundEffectN@20
+    Java_org_videolan_Libbluray_tellTimeN@16
+    Java_org_videolan_Libbluray_updateGraphicN@44
+    Java_org_videolan_Libbluray_writeGPRN@24
+    Java_org_videolan_Libbluray_writePSRN@28
+    Java_org_videolan_Logger_logN@24
     av_add_index_entry
     av_append_packet
     av_apply_bitstream_filters
@@ -113,6 +147,7 @@ EXPORTS
     avio_close_dir
     avio_close_dyn_buf
     avio_closep
+    avio_context_free
     avio_enum_protocols
     avio_feof
     avio_find_protocol_name
@@ -139,6 +174,7 @@ EXPORTS
     avio_rb64
     avio_read
     avio_read_dir
+    avio_read_partial
     avio_read_to_bprint
     avio_rl16
     avio_rl24

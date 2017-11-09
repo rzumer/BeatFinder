@@ -192,7 +192,6 @@ EXPORTS
     avcodec_set_dimensions
     avcodec_string
     avcodec_version
-    aver_isf_history
     average_split_mvs
     avpicture_alloc
     avpicture_fill
@@ -208,6 +207,7 @@ EXPORTS
     avpriv_copy_bits
     avpriv_copy_pce_data
     avpriv_dca_convert_bitstream
+    avpriv_dca_parse_core_frame_header
     avpriv_dca_sample_rates DATA
     avpriv_dnxhd_get_frame_size
     avpriv_dnxhd_get_interlaced
@@ -216,6 +216,8 @@ EXPORTS
     avpriv_exif_decode_ifd
     avpriv_find_pix_fmt
     avpriv_find_start_code
+    avpriv_fits_header_init
+    avpriv_fits_header_parse_line
     avpriv_get_raw_pix_fmt_tags
     avpriv_h264_has_num_reorder_frames
     avpriv_init_elbg
@@ -242,3 +244,7 @@ EXPORTS
     avpriv_toupper4
     avpriv_unlock_avformat
     avsubtitle_free
+    x265_csvlog_encode
+    x265_csvlog_frame
+    x265_csvlog_open
+    x265_dither_image
