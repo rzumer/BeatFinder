@@ -13,7 +13,7 @@
 
 using namespace std;
 
-BeatInfo FindBeats(char *inputFileName)
+BeatInfo *FindBeats(const char *inputFileName)
 {
 	const vector<AVCodecID> *codecIDs = new vector<AVCodecID>{ AV_CODEC_ID_PCM_F32BE, AV_CODEC_ID_PCM_F32LE };
 
@@ -23,10 +23,9 @@ BeatInfo FindBeats(char *inputFileName)
 	const double thresholdMultiplier = 1.5;
 
 	PCMDecoder *decoder = new PCMDecoder;
-	char *input = inputFileName;
 
 	const AVCodecID codecID = AV_CODEC_ID_PCM_U8;
-	AVPacket *packet = decoder->decodeAudio(input, codecID);
+	AVPacket *packet = decoder->decodeAudio(inputFileName, codecID);
 
 	int numSamples = 0;
 	int overflow = 0;
@@ -179,16 +178,16 @@ BeatInfo FindBeats(char *inputFileName)
 	ofstream stream2(strcat(input, "_peaks.txt"));
 	copy(peaks.begin(), peaks.end(), ostream_iterator<float>(stream2, "\n"));*/
 
-	BeatInfo beatInfo;
-	beatInfo.spectralFlux = spectralFlux;
-	beatInfo.peaks = peaks;
+	BeatInfo *beatInfo = new BeatInfo;
+	beatInfo->spectralFlux = spectralFlux;
+	beatInfo->peaks = peaks;
 
 	//cout << "Done." << endl;
 
 	return beatInfo;
 }
 
-int main(int argc, char* argv[])
+/*int main(int argc, char* argv[])
 {
 	if (argc >= 2)
 	{
@@ -207,4 +206,4 @@ int main(int argc, char* argv[])
 
 	getchar();
 	return 0;
-}
+}*/

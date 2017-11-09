@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef BEATFINDER_H
+#define BEATFINDER_H
+
 #include <vector>
 
 struct BeatInfo
@@ -9,4 +12,6 @@ struct BeatInfo
 	std::vector<int> peaks;
 };
 
-BeatInfo FindBeats(char *inputFileName);
+BeatInfo *FindBeats(const char *inputFileName);
+
+#endif
