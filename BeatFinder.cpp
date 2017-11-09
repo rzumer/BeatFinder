@@ -1,24 +1,17 @@
 ﻿// BeatFinder.cpp : Defines the entry point for the console application.
 //
 
-#include <vector>
 #include <iostream>
 #include <iterator>
 #include <algorithm>
 #include <fstream>
 #include <numeric>
 #include <unsupported/Eigen/FFT>
+#include "BeatFinder.h"
 #include "libavcodec/avcodec.h"
 #include "audioconv.h"
 
 using namespace std;
-
-struct BeatInfo
-{
-	const int windowSize = 1024;
-	vector<float> spectralFlux;
-	vector<int> peaks;
-};
 
 BeatInfo FindBeats(char *inputFileName)
 {
