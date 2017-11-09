@@ -93,7 +93,7 @@ int fileAudioDecoder::decodeFrame()
 
 			if (avcodec_send_packet(this->codecContext, this->packet) != 0)
 			{
-				// Skip a number of packets in case of a misread header.
+				// Skip a number of packets in case of a misread header (e.g. metadata).
 				if (++skippedPackets > 10)
 				{
 					cout << "Error sending packet to decoder." << endl;

@@ -13,183 +13,205 @@
 
 using namespace std;
 
-int main(int argc, char* argv[])
+struct BeatInfo
 {
-	const vector<AVCodecID> *codecIDs = new vector<AVCodecID> { AV_CODEC_ID_PCM_F32BE, AV_CODEC_ID_PCM_F32LE };
+	const int windowSize = 1024;
+	vector<float> spectralFlux;
+	vector<int> peaks;
+};
 
-	if (argc >= 3)
+BeatInfo FindBeats(char *inputFileName)
+{
+	const vector<AVCodecID> *codecIDs = new vector<AVCodecID>{ AV_CODEC_ID_PCM_F32BE, AV_CODEC_ID_PCM_F32LE };
+
+	const int windowSize = 1024;
+	const int windowBytes = windowSize;
+	const int movingAverageSize = 20;
+	const double thresholdMultiplier = 1.5;
+
+	PCMDecoder *decoder = new PCMDecoder;
+	char *input = inputFileName;
+
+	const AVCodecID codecID = AV_CODEC_ID_PCM_U8;
+	AVPacket *packet = decoder->decodeAudio(input, codecID);
+
+	int numSamples = 0;
+	int overflow = 0;
+	vector<uint8_t> samples(packet->data, packet->data + packet->size);
+	vector<complex<float>> spectrum(windowSize);
+	vector<complex<float>> lastSpectrum(windowSize);
+	vector<float> spectralFlux;
+	vector<int> peaks;
+	int lastSum = 0;
+	int curSum = 0;
+
+	while (packet)
 	{
-		convertAudioFile(argv[1], argv[2], codecIDs);
-	}
-	else if (argc >= 2)
-	{
-		const int windowSize = 1024;
-		const int windowBytes = windowSize;
-		const int movingAverageSize = 20;
-		const double thresholdMultiplier = 1.5;
+		numSamples += packet->size;
+		overflow = max(numSamples - windowBytes, 0);
 
-		PCMDecoder *decoder = new PCMDecoder;
-		char *input = argv[1];
+		// Append packet contents to the window buffer
+		copy(packet->data, packet->data + packet->size - overflow, back_inserter(samples));
 
-		AVPacket *packet = decoder->decodeAudio(input, AV_CODEC_ID_PCM_U8);
-		int numSamples = 0;
-		int overflow = 0;
-		vector<uint8_t> samples(packet->data, packet->data + packet->size);
-		vector<complex<float>> spectrum(windowSize);
-		vector<complex<float>> lastSpectrum(windowSize);
-		vector<float> spectralFlux;
-		vector<int> peaks;
-		int lastSum = 0;
-		int curSum = 0;
-
-		while(packet)
+		while (numSamples >= windowBytes)
 		{
-			numSamples += packet->size;
-			overflow = max(numSamples - windowBytes, 0);
+			// Convert data to signed float between -1 and 1
+			vector<float> floatSamples(0);
 
-			// Append packet contents to the window buffer
-			copy(packet->data, packet->data + packet->size - overflow, back_inserter(samples));
-
-			while (numSamples >= windowBytes)
+			for (int i = 0; i < windowSize; i++)
 			{
-				// Convert data to signed float between -1 and 1
-				vector<float> floatSamples;
+				float convSample = (int)samples[i] / (numeric_limits<uint8_t>::max() / 2.0) - 1;
+				float hammingCoefficient = 0.54 - 0.46 * cos(2 * M_PI * i / (double)windowSize);
 
-				for (int i = 0; i < windowSize; i++)
+				floatSamples.push_back(convSample * hammingCoefficient);
+			}
+
+			Eigen::FFT<float> fft;
+			fft.fwd(spectrum, floatSamples);
+
+			int spectralDiff = 0;
+
+			for (int i = 0; i < spectrum.size(); i++)
+			{
+				float diff = abs(spectrum[i]) - abs(lastSpectrum[i]);
+				spectralDiff += fmax(diff, 0);
+			}
+
+			spectralFlux.push_back(spectralDiff);
+			lastSpectrum = spectrum;
+
+			// Check for a peak
+			// TODO get the same results in this method and below.
+			float peak = 0;
+
+			int currentWindow = (int)spectralFlux.size() - 1 - movingAverageSize;
+			int startWindow = max(0, currentWindow - movingAverageSize);
+			int endWindow = min((int)spectralFlux.size() - 1, currentWindow + movingAverageSize);
+
+			if (currentWindow >= 0)
+			{
+				float sum = 0;
+				float threshold = 0;
+
+				for (int j = startWindow; j <= endWindow; j++)
 				{
-					float convSample = (int)samples[i] / (numeric_limits<uint8_t>::max() / 2.0) - 1;
-					float hammingCoefficient = 0.54 - 0.46 * cos(2 * M_PI * i / (double)windowSize);
-					
-					floatSamples.push_back(convSample * hammingCoefficient);
+					sum += spectralFlux.at(j);
 				}
 
-				Eigen::FFT<float> fft;
-				fft.fwd(spectrum, floatSamples);
+				threshold = sum / (endWindow - startWindow + 1) * thresholdMultiplier;
 
-				int spectralDiff = 0;
-
-				for (int i = 0; i < spectrum.size(); i++)
+				if (threshold <= spectralFlux.at(currentWindow))
 				{
-					float diff = abs(spectrum[i]) - abs(lastSpectrum[i]);
-					spectralDiff += fmax(diff, 0);
-				}
+					peak = spectralFlux.at(currentWindow) - threshold;
 
-				spectralFlux.push_back(spectralDiff);
-				lastSpectrum = spectrum;
-
-				// Check for a peak
-				// TODO get the same results in this method and below.
-				float peak = 0;
-
-				int currentWindow = (int)spectralFlux.size() - 1 - movingAverageSize;
-				int startWindow = max(0, currentWindow - movingAverageSize);
-				int endWindow = min((int)spectralFlux.size() - 1, currentWindow + movingAverageSize);
-
-				if (currentWindow >= 0)
-				{
-					float sum = 0;
-					float threshold = 0;
-
-					for (int j = startWindow; j <= endWindow; j++)
+					// Ensure that only peaks are selected.
+					if (peaks.size() > 0)
 					{
-						sum += spectralFlux.at(j);
-					}
+						float lastPeak = peaks.back();
 
-					threshold = sum / (endWindow - startWindow + 1) * thresholdMultiplier;
-
-					if (threshold <= spectralFlux.at(currentWindow))
-					{
-						peak = spectralFlux.at(currentWindow) - threshold;
-
-						// Ensure that only peaks are selected.
-						if (peaks.size() > 0)
+						if (peak < lastPeak)
 						{
-							float lastPeak = peaks.back();
-
-							if (peak < lastPeak)
-							{
-								peak = 0;
-							}
-							else
-							{
-								peaks.pop_back();
-								peaks.push_back((float)0);
-							}
+							peak = 0;
+						}
+						else
+						{
+							peaks.pop_back();
+							peaks.push_back((float)0);
 						}
 					}
-
-					peaks.push_back(peak);
 				}
 
-				// Handle remaining bytes
-				if (overflow > 0)
-				{
-					// Add the remaining samples back to the window buffer
-					samples = vector<uint8_t>(packet->data + packet->size - overflow, packet->data + min(packet->size - overflow + 1 + windowBytes, packet->size));
-					overflow = max(overflow - windowBytes, 0);
-				}
-
-				numSamples = max(numSamples - windowBytes, 0);
+				peaks.push_back(peak);
 			}
 
-			packet = decoder->decodeAudio(NULL);
-		}
-
-		// Pad peak vector to the same size as the spectral flux.
-		for (int i = 0; i < movingAverageSize; i++)
-		{
-			peaks.push_back(0);
-		}
-
-		// Find peak windows from the spectral flux
-		// TODO get the same results in this method and above.
-		/*vector<float> threshold;
-		for (int i = 0; i < spectralFlux.size(); i++)
-		{
-			int start = max(0, i - movingAverageSize);
-			int end = min((int)spectralFlux.size() - 1, i + movingAverageSize);
-			float mean = 0;
-			for (int j = start; j <= end; j++)
-				mean += spectralFlux.at(j);
-			mean /= (end - start);
-			threshold.push_back(mean * thresholdMultiplier);
-		}
-
-		vector<float> prunedSpectralFlux;
-		for (int i = 0; i < threshold.size(); i++)
-		{
-			if (threshold.at(i) <= spectralFlux.at(i))
+			// Handle remaining bytes
+			if (overflow > 0)
 			{
-				prunedSpectralFlux.push_back(spectralFlux.at(i) - threshold.at(i));
+				// Add the remaining samples back to the window buffer
+				samples = vector<uint8_t>(packet->data + packet->size - overflow, packet->data + min(packet->size - overflow + 1 + windowBytes, packet->size));
+				overflow = max(overflow - windowBytes, 0);
 			}
-			else
-				prunedSpectralFlux.push_back((float)0);
+
+			numSamples = max(numSamples - windowBytes, 0);
 		}
 
-		vector<float> peaks;
-		for (int i = 1; i < prunedSpectralFlux.size() - 1; i++)
+		packet = decoder->decodeAudio(NULL);
+	}
+
+	// Pad peak vector to the same size as the spectral flux.
+	for (int i = 0; i < movingAverageSize; i++)
+	{
+		peaks.push_back(0);
+	}
+
+	// Find peak windows from the spectral flux
+	// TODO get the same results in this method and above.
+	/*vector<float> threshold;
+	for (int i = 0; i < spectralFlux.size(); i++)
+	{
+		int start = max(0, i - movingAverageSize);
+		int end = min((int)spectralFlux.size() - 1, i + movingAverageSize);
+		float mean = 0;
+		for (int j = start; j <= end; j++)
+			mean += spectralFlux.at(j);
+		mean /= (end - start);
+		threshold.push_back(mean * thresholdMultiplier);
+	}
+
+	vector<float> prunedSpectralFlux;
+	for (int i = 0; i < threshold.size(); i++)
+	{
+		if (threshold.at(i) <= spectralFlux.at(i))
 		{
-			if (prunedSpectralFlux.at(i) > prunedSpectralFlux.at(i + 1) && prunedSpectralFlux.at(i) > prunedSpectralFlux.at(i - 1))
-			{
-				peaks.push_back(prunedSpectralFlux.at(i));
-			}
-			else
-				peaks.push_back((float)0);
-		}*/
+			prunedSpectralFlux.push_back(spectralFlux.at(i) - threshold.at(i));
+		}
+		else
+			prunedSpectralFlux.push_back((float)0);
+	}
+
+	vector<float> peaks;
+	for (int i = 1; i < prunedSpectralFlux.size() - 1; i++)
+	{
+		if (prunedSpectralFlux.at(i) > prunedSpectralFlux.at(i + 1) && prunedSpectralFlux.at(i) > prunedSpectralFlux.at(i - 1))
+		{
+			peaks.push_back(prunedSpectralFlux.at(i));
+		}
+		else
+			peaks.push_back((float)0);
+	}*/
+
+	/*ofstream stream(strcat(input, "_flux.txt"));
+	copy(spectralFlux.begin(), spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
+
+	ofstream stream2(strcat(input, "_peaks.txt"));
+	copy(peaks.begin(), peaks.end(), ostream_iterator<float>(stream2, "\n"));*/
+
+	BeatInfo beatInfo;
+	beatInfo.spectralFlux = spectralFlux;
+	beatInfo.peaks = peaks;
+
+	//cout << "Done." << endl;
+
+	return beatInfo;
+}
+
+int main(int argc, char* argv[])
+{
+	if (argc >= 2)
+	{
+		BeatInfo beatInfo = FindBeats(argv[1]);
 
 		ofstream stream(strcat(argv[1], "_flux.txt"));
-		copy(spectralFlux.begin(), spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
+		copy(beatInfo.spectralFlux.begin(), beatInfo.spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
 
-		ofstream stream2("C:/out_peaks.txt");
-		copy(peaks.begin(), peaks.end(), ostream_iterator<float>(stream2, "\n"));
-
-		cout << "Done." << endl;
+		ofstream stream2(strcat(argv[1], "_peaks.txt"));
+		copy(beatInfo.peaks.begin(), beatInfo.peaks.end(), ostream_iterator<float>(stream2, "\n"));
 	}
 	else
 	{
-		cout << "Usage: BeatFinder <input> <output>" << endl;
+		cout << "Usage: BeatFinder <input>" << endl;
 	}
-	
+
 	getchar();
-    return 0;
+	return 0;
 }
