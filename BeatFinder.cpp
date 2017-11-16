@@ -15,7 +15,7 @@ using namespace std;
 
 BeatInfo *FindBeats(const char *inputFileName)
 {
-	const vector<AVCodecID> *codecIDs = new vector<AVCodecID>{ AV_CODEC_ID_PCM_F32BE, AV_CODEC_ID_PCM_F32LE };
+	// const vector<AVCodecID> *codecIDs = new vector<AVCodecID>{ AV_CODEC_ID_PCM_F32BE, AV_CODEC_ID_PCM_F32LE };
 
 	const int windowSize = 1024;
 	const int windowBytes = windowSize;
@@ -29,7 +29,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 
 	int numSamples = 0;
 	int overflow = 0;
-	vector<uint8_t> samples(packet->data, packet->data + packet->size);
+	vector<uint8_t> samples;
 	vector<complex<float>> spectrum(windowSize);
 	vector<complex<float>> lastSpectrum(windowSize);
 	vector<float> spectralFlux;
@@ -123,6 +123,10 @@ BeatInfo *FindBeats(const char *inputFileName)
 				samples = vector<uint8_t>(packet->data + packet->size - overflow, packet->data + min(packet->size - overflow + 1 + windowBytes, packet->size));
 				overflow = max(overflow - windowBytes, 0);
 			}
+			else
+			{
+				samples.clear();
+			}
 
 			numSamples = max(numSamples - windowBytes, 0);
 		}
@@ -191,13 +195,13 @@ BeatInfo *FindBeats(const char *inputFileName)
 {
 	if (argc >= 2)
 	{
-		BeatInfo beatInfo = FindBeats(argv[1]);
+		BeatInfo *beatInfo = FindBeats(argv[1]);
 
 		ofstream stream(strcat(argv[1], "_flux.txt"));
-		copy(beatInfo.spectralFlux.begin(), beatInfo.spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
+		copy(beatInfo->spectralFlux.begin(), beatInfo->spectralFlux.end(), ostream_iterator<int>(stream, "\n"));
 
 		ofstream stream2(strcat(argv[1], "_peaks.txt"));
-		copy(beatInfo.peaks.begin(), beatInfo.peaks.end(), ostream_iterator<float>(stream2, "\n"));
+		copy(beatInfo->peaks.begin(), beatInfo->peaks.end(), ostream_iterator<float>(stream2, "\n"));
 	}
 	else
 	{
