@@ -16,16 +16,22 @@ using namespace std;
 BeatInfo *FindBeats(const char *inputFileName)
 {
 	// const vector<AVCodecID> *codecIDs = new vector<AVCodecID>{ AV_CODEC_ID_PCM_F32BE, AV_CODEC_ID_PCM_F32LE };
+	const AVCodecID codecID = AV_CODEC_ID_PCM_U8;
 
 	const int windowSize = 1024;
 	const int windowBytes = windowSize;
 	const int movingAverageSize = 20;
 	const double thresholdMultiplier = 1.5;
 
-	PCMDecoder *decoder = new PCMDecoder;
+	AudioTranscoder *transcoder = new AudioTranscoder(inputFileName, codecID);
 
-	const AVCodecID codecID = AV_CODEC_ID_PCM_U8;
-	AVPacket *packet = decoder->decodeAudio(inputFileName, codecID);
+	if (transcoder->Init() != 0)
+	{
+		cout << "Error initializing transcoder." << endl;
+		return NULL;
+	}
+
+	AVPacket *packet = transcoder->getPacket();
 
 	int numSamples = 0;
 	int overflow = 0;
@@ -131,7 +137,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 			numSamples = max(numSamples - windowBytes, 0);
 		}
 
-		packet = decoder->decodeAudio(NULL);
+		packet = transcoder->getPacket();
 	}
 
 	// Pad peak vector to the same size as the spectral flux.
@@ -191,7 +197,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 	return beatInfo;
 }
 
-/*int main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	if (argc >= 2)
 	{
@@ -205,9 +211,10 @@ BeatInfo *FindBeats(const char *inputFileName)
 	}
 	else
 	{
+		BeatInfo *beatInfo = FindBeats("C:/rapidminer/Kalimba.mp3");
 		cout << "Usage: BeatFinder <input>" << endl;
 	}
 
 	getchar();
 	return 0;
-}*/
+}

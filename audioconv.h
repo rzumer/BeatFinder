@@ -20,13 +20,18 @@ extern "C"
 #include "fileAudioDecoder.h"
 
 #pragma once
-class PCMDecoder
+class AudioTranscoder
 {
 private:
 	fileAudioDecoder *decoder;
 	fileAudioEncoder *encoder;
+	const char *inputFilePath;
+	AVCodecID codecID;
+	int firstFrame;
 public:
-	AVPacket *decodeAudio(const char *input, AVCodecID codecID = AV_CODEC_ID_NONE);
+	AudioTranscoder(const char *input, AVCodecID codecID = AV_CODEC_ID_NONE);
+	int Init();
+	AVPacket *getPacket();
 };
 
 int convertAudioFile(const char *input, const char *output, const std::vector<AVCodecID> *codecIDs);

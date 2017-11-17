@@ -5,49 +5,22 @@
 
 using namespace std;
 
-AVPacket *PCMDecoder::decodeAudio(const char *input, AVCodecID codecID)
+AudioTranscoder::AudioTranscoder(const char *input, AVCodecID codecID)
 {
-	AVPacket *outputPacket = new AVPacket;
-	AVFrame *outFrame = NULL;
-
-	if (!input)
-	{
-		if (!decoder || !encoder)
-		{
-			cout << "Uninitialized input." << endl;
-			return NULL;
-		}
-
-		do
-		{
-			outputPacket = encoder->getEncodedPacket(outFrame);
-
-			if (outputPacket == NULL)
-			{
-				cout << "Error getting encoded packet." << endl;
-				return NULL;
-			}
-
-			if (outputPacket->size > 0)
-			{
-				return outputPacket;
-			}
-
-			outFrame = decoder->getDecodedFrame();
-		} while (outFrame);
-
-		return NULL;
-	}
-
 	av_register_all();
 
 	decoder = new fileAudioDecoder;
 	encoder = new fileAudioEncoder;
+	this->inputFilePath = input;
+	this->codecID = codecID;
+}
 
-	if (!decoder->init(input) == 0)
+int AudioTranscoder::Init()
+{
+	if (!decoder->init(inputFilePath) == 0)
 	{
 		cout << "Error reading input file." << endl;
-		return NULL;
+		return -1;
 	}
 
 	AVCodecParameters *decodingParameters = decoder->getCodecParameters();
@@ -57,18 +30,39 @@ AVPacket *PCMDecoder::decodeAudio(const char *input, AVCodecID codecID)
 	if (!encoder->init(NULL, new vector<AVCodecID>{ codecID }, decodingParameters) == 0)
 	{
 		cout << "Error initializing encoder." << endl;
-		return NULL;
+		return -1;
 	}
 
-	outFrame = decoder->getDecodedFrame();
+	this->firstFrame = 1;
 
-	if (!outFrame)
+	return 0;
+}
+
+AVPacket *AudioTranscoder::getPacket()
+{
+	AVPacket *outputPacket = new AVPacket;
+	AVFrame *outFrame = NULL;
+
+	if (!decoder || !encoder)
 	{
-		cout << "Error fetching a frame." << endl;
+		cout << "Uninitialized input." << endl;
 		return NULL;
 	}
 
-	while (outFrame != NULL)
+	if (firstFrame)
+	{
+		outFrame = decoder->getDecodedFrame();
+
+		if (!outFrame)
+		{
+			cout << "Error fetching a frame." << endl;
+			return NULL;
+		}
+
+		this->firstFrame = 0;
+	}
+
+	do
 	{
 		outputPacket = encoder->getEncodedPacket(outFrame);
 
@@ -84,9 +78,11 @@ AVPacket *PCMDecoder::decodeAudio(const char *input, AVCodecID codecID)
 		}
 
 		outFrame = decoder->getDecodedFrame();
-	}
+	} while (outFrame);
 
 	return NULL;
+
+	
 }
 
 int convertAudioFile(const char *input, const char *output, const vector<AVCodecID> *codecIDs)

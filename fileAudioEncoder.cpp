@@ -15,15 +15,17 @@ void fileAudioEncoder::cleanUp()
 		avcodec_free_context(&this->codecContext);
 	}
 
-	if (this->ioContext)
+	// Causes access exceptions
+	/*if (this->ioContext)
 	{
 		avio_close(this->ioContext);
+		avio_context_free(&this->ioContext);
 	}
 
 	if (this->formatContext)
 	{
 		avformat_free_context(this->formatContext);
-	}
+	}*/
 
 	if (this->filterGraph)
 	{
