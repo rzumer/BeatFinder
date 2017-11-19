@@ -189,6 +189,8 @@ BeatInfo *FindBeats(const char *inputFileName)
 	copy(peaks.begin(), peaks.end(), ostream_iterator<float>(stream2, "\n"));*/
 
 	BeatInfo *beatInfo = new BeatInfo;
+	beatInfo->windowSize = windowSize;
+	beatInfo->sampleRate = transcoder->decodingParameters->sample_rate;
 	beatInfo->spectralFlux = spectralFlux;
 	beatInfo->peaks = peaks;
 
@@ -197,7 +199,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 	return beatInfo;
 }
 
-int main(int argc, char* argv[])
+/*int main(int argc, char* argv[])
 {
 	if (argc >= 2)
 	{
@@ -211,10 +213,10 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		BeatInfo *beatInfo = FindBeats("C:/rapidminer/Kalimba.mp3");
+		//BeatInfo *beatInfo = FindBeats("C:/rapidminer/Kalimba.mp3");
 		cout << "Usage: BeatFinder <input>" << endl;
 	}
 
 	getchar();
 	return 0;
-}
+}*/

@@ -29,6 +29,7 @@ private:
 	AVCodecID codecID;
 	int firstFrame;
 public:
+	AVCodecParameters *decodingParameters;
 	AudioTranscoder(const char *input, AVCodecID codecID = AV_CODEC_ID_NONE);
 	int Init();
 	AVPacket *getPacket();

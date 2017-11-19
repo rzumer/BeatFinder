@@ -23,7 +23,7 @@ int AudioTranscoder::Init()
 		return -1;
 	}
 
-	AVCodecParameters *decodingParameters = decoder->getCodecParameters();
+	decodingParameters = decoder->getCodecParameters();
 	decodingParameters->channel_layout = AV_CH_LAYOUT_MONO;
 	decodingParameters->channels = 1;
 
