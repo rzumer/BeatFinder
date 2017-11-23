@@ -38,6 +38,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 	vector<uint8_t> samples;
 	vector<complex<float>> spectrum(windowSize);
 	vector<complex<float>> lastSpectrum(windowSize);
+	vector<float> amplitudeEnvelope;
 	vector<float> spectralFlux;
 	vector<int> peaks;
 	int lastSum = 0;
@@ -54,7 +55,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 		while (numSamples >= windowBytes)
 		{
 			// Convert data to signed float between -1 and 1
-			vector<float> floatSamples(0);
+			vector<float> floatSamples;
 
 			for (int i = 0; i < windowSize; i++)
 			{
@@ -63,6 +64,11 @@ BeatInfo *FindBeats(const char *inputFileName)
 
 				floatSamples.push_back(convSample * hammingCoefficient);
 			}
+
+			vector<float> absFloatSamples = floatSamples;
+			for (auto& f : absFloatSamples) { f = f < 0 ? -f : f; }
+
+			amplitudeEnvelope.push_back(1.0 * std::accumulate(absFloatSamples.begin(), absFloatSamples.end(), 0.0f) / absFloatSamples.size());
 
 			Eigen::FFT<float> fft;
 			fft.fwd(spectrum, floatSamples);
@@ -132,6 +138,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 			else
 			{
 				samples.clear();
+				floatSamples.clear();
 			}
 
 			numSamples = max(numSamples - windowBytes, 0);
@@ -191,6 +198,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 	BeatInfo *beatInfo = new BeatInfo;
 	beatInfo->windowSize = windowSize;
 	beatInfo->sampleRate = transcoder->decodingParameters->sample_rate;
+	beatInfo->amplitudeEnvelope = amplitudeEnvelope;
 	beatInfo->spectralFlux = spectralFlux;
 	beatInfo->peaks = peaks;
 
@@ -199,7 +207,7 @@ BeatInfo *FindBeats(const char *inputFileName)
 	return beatInfo;
 }
 
-/*int main(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
 	if (argc >= 2)
 	{
@@ -213,10 +221,10 @@ BeatInfo *FindBeats(const char *inputFileName)
 	}
 	else
 	{
-		//BeatInfo *beatInfo = FindBeats("C:/rapidminer/Kalimba.mp3");
+		BeatInfo *beatInfo = FindBeats("C:/rapidminer/Kalimba.mp3");
 		cout << "Usage: BeatFinder <input>" << endl;
 	}
 
 	getchar();
 	return 0;
-}*/
+}
