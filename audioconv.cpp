@@ -13,6 +13,7 @@ AudioTranscoder::AudioTranscoder(const char *input, AVCodecID codecID)
 	encoder = new fileAudioEncoder;
 	this->inputFilePath = input;
 	this->codecID = codecID;
+	this->duration = 0.0;
 }
 
 int AudioTranscoder::Init()
@@ -22,6 +23,8 @@ int AudioTranscoder::Init()
 		cout << "Error reading input file." << endl;
 		return -1;
 	}
+
+	duration = decoder->getStreamDuration();
 
 	decodingParameters = decoder->getCodecParameters();
 	decodingParameters->channel_layout = AV_CH_LAYOUT_MONO;

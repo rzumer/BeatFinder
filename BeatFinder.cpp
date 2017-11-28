@@ -201,13 +201,14 @@ BeatInfo *FindBeats(const char *inputFileName)
 	beatInfo->amplitudeEnvelope = amplitudeEnvelope;
 	beatInfo->spectralFlux = spectralFlux;
 	beatInfo->peaks = peaks;
+	beatInfo->duration = transcoder->duration;
 
 	//cout << "Done." << endl;
 
 	return beatInfo;
 }
 
-int main(int argc, char* argv[])
+/*int main(int argc, char* argv[])
 {
 	if (argc >= 2)
 	{
@@ -221,10 +222,9 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		BeatInfo *beatInfo = FindBeats("C:/rapidminer/Kalimba.mp3");
 		cout << "Usage: BeatFinder <input>" << endl;
 	}
 
 	getchar();
 	return 0;
-}
+}*/

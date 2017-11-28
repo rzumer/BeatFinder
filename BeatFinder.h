@@ -9,6 +9,7 @@ struct BeatInfo
 {
 	int windowSize;
 	int sampleRate;
+	double duration;
 	std::vector<float> amplitudeEnvelope;
 	std::vector<float> spectralFlux;
 	std::vector<int> peaks;

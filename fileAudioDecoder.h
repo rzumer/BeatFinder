@@ -30,6 +30,7 @@ private:
 	AVFormatContext *formatContext;
 	AVPacket *packet;
 	AVFrame *frame;
+	int streamID;
 	int finished;
 
 	void cleanUp();
@@ -38,6 +39,7 @@ private:
 
 public:
 	int init(const char *filePath);
+	double getStreamDuration();
 	AVCodecParameters *getCodecParameters();
 	AVFrame *getDecodedFrame();
 };

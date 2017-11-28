@@ -151,26 +151,26 @@ int fileAudioDecoder::init(const char *filePath)
 	av_dump_format(this->formatContext, 0, filePath, 0);
 #endif
 
-	int streamID = -1;
+	this->streamID = -1;
 
 	// Find the first audio stream.
 	for (unsigned int i = 0; i < this->formatContext->nb_streams; i++)
 	{
 		if (this->formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
 		{
-			streamID = i;
+			this->streamID = i;
 			break;
 		}
 	}
 
-	if (streamID == -1)
+	if (this->streamID == -1)
 	{
 		cout << "No audio stream found." << endl;
 		this->cleanUp();
 		return -1;
 	}
 
-	this->codecParameters = this->formatContext->streams[streamID]->codecpar;
+	this->codecParameters = this->formatContext->streams[this->streamID]->codecpar;
 	this->codec = avcodec_find_decoder(this->codecParameters->codec_id);
 
 	if (!this->codec)
@@ -197,6 +197,18 @@ int fileAudioDecoder::init(const char *filePath)
 	}
 
 	return 0;
+}
+
+double fileAudioDecoder::getStreamDuration()
+{
+	if (this->formatContext)
+	{
+		AVStream *stream = this->formatContext->streams[this->streamID];
+
+		return stream->duration * stream->time_base.num / ((double)stream->time_base.den / 1000);
+	}
+
+	return 0.0;
 }
 
 AVCodecParameters *fileAudioDecoder::getCodecParameters()

@@ -28,8 +28,10 @@ private:
 	const char *inputFilePath;
 	AVCodecID codecID;
 	int firstFrame;
+
 public:
 	AVCodecParameters *decodingParameters;
+	double duration;
 	AudioTranscoder(const char *input, AVCodecID codecID = AV_CODEC_ID_NONE);
 	int Init();
 	AVPacket *getPacket();
